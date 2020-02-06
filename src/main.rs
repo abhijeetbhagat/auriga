@@ -7,8 +7,10 @@ mod proto;
 use broker::Broker;
 use tokio;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     println!("Starting broker...");
     let broker = Broker::new();
-    tokio::spawn(broker.start());
+    // tokio::spawn(broker.start());
+    broker.start().await;
 }

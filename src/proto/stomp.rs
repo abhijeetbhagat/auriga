@@ -1,4 +1,4 @@
-enum Frame {
+pub enum Frame {
     Send,
     Subscribe,
     Unsubscribe,
@@ -17,11 +17,11 @@ enum Frame {
 pub struct STOMPParser;
 
 impl STOMPParser {
-    fn new() -> Self {
+    pub fn new() -> Self {
         STOMPParser
     }
 
-    fn parse(self, command: &str) -> Frame {
+    pub fn parse(self, command: &str) -> Frame {
         let lines: Vec<&str> = command.split('\n').collect();
         let command_str = lines[0];
         match command_str { 

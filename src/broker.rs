@@ -17,7 +17,7 @@ impl Broker {
         self.exchange.start();
     }
 
-    fn routeMessage(self, key: &str) {
+    fn route_message(self, key: &str) {
 
     }
 

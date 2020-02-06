@@ -3,21 +3,21 @@ use crate::proto::stomp::STOMPParser;
 use crate::queue_manager::QueueManager;
 
 pub struct Exchange {
-    incoming: Connection, //TODO abhi: This should be multi-transport 
+    //incoming: Connection, //TODO abhi: This should be multi-transport 
     parser: STOMPParser,
-    queueManager: QueueManager,
+    queue_manager: QueueManager,
 }
 
 impl Exchange {
     pub fn new() -> Self {
         Exchange {
-            incoming: Connection::new("".parse().unwrap()),
+            //incoming: Connection::new("".parse().unwrap()),
             parser: STOMPParser,
-            queueManager: QueueManager::new()
+            queue_manager: QueueManager::new()
         }
     }
 
     pub fn start(self) { 
-        self.incoming.start();
+        //self.incoming.start();
     }
 }

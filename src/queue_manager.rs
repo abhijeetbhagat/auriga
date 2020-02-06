@@ -2,14 +2,15 @@ use std::collections::VecDeque;
 use crate::connection::Connection;
 
 pub struct QueueManager {
-    outgoing: Connection,
+    //outgoing: Connection,
     queue: VecDeque<i32>
+
 }
 
 impl QueueManager {
     pub fn new() -> Self {
         QueueManager {
-            outgoing: Connection::new("".parse().unwrap()),
+            //outgoing: Connection::new("".parse().unwrap()),
             queue: VecDeque::new()
         }
     }
