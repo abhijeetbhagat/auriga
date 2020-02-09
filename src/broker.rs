@@ -8,7 +8,7 @@ pub struct Broker{
 impl Broker {
     pub fn new() -> Self { 
         Broker {
-            exchange: Exchange::new()
+            exchange: Exchange::new(String::from(""))
         }
     }
 
