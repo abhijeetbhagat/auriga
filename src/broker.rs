@@ -14,7 +14,7 @@ impl Broker {
 
     pub async fn start(self) { 
         //TODO abhi: start protocol handler
-        self.exchange.start();
+        self.exchange.start().await;
     }
 
     fn route_message(self, key: &str) {
