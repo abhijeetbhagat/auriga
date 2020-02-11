@@ -50,7 +50,7 @@ impl ConnectionListener {
                 println!("Accepted a connection from {}", addr);
                 let queue_mgr = Arc::clone(&queue_mgr);
                 tokio::spawn(async move {
-                    self::create_client(queue_mgr, stream, addr).await;
+                    self::handle(queue_mgr, stream, addr).await;
                 });
             }
         };
@@ -62,9 +62,11 @@ impl Stream for Client {
     type Item = Result<Message, LinesCodecError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if let Poll::Ready(Some(v)) = Pin::new(self.rx.as_mut().unwrap()).poll_next(cx) {
-            return Poll::Ready(Some(Ok(Message::ChannelMessage(v))))
-        } 
+        if self.rx.is_some() {
+            if let Poll::Ready(Some(v)) = Pin::new(self.rx.as_mut().unwrap()).poll_next(cx) {
+                return Poll::Ready(Some(Ok(Message::ChannelMessage(v))))
+            } 
+        }
 
         let result: Option<_> = futures::ready!(Pin::new(&mut self.stream).poll_next(cx));
         Poll::Ready(match result { 
@@ -75,17 +77,20 @@ impl Stream for Client {
     }
 }
 
-async fn create_client(queue_mgr: Arc<Mutex<QueueManager>>, stream: TcpStream, addr: SocketAddr) { 
+async fn handle(queue_mgr: Arc<Mutex<QueueManager>>, stream: TcpStream, addr: SocketAddr) { 
     let mut stream = Framed::new(stream, LinesCodec::new());
-
     let mut client = Client { rx: None, stream: stream };
     let parser = STOMPParser;
+
+    println!("Starting handler for {}", addr);
     while let Some(result) = client.next().await { 
         match result {
             Ok(Message::ChannelMessage(m)) => {
+                println!("Got something from channel to send on the write part of the stream");
                 client.stream.send(m).await;
             },
             Ok(Message::StreamMessage(m)) => {
+                println!("Got something to process from the read part of the stream");
                 let msg = &m;
                 let frame = parser.parse(msg);
                 match frame {
