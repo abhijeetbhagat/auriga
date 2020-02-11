@@ -14,7 +14,7 @@ use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
 type Tx = mpsc::UnboundedSender<String>;
 type Rx = mpsc::UnboundedReceiver<String>;
 
-pub struct ConnectionFactory {
+pub struct ConnectionListener {
     addr: SocketAddr,
     connections_map: Arc<Mutex<HashMap<SocketAddr, Tx>>>
 }
@@ -29,9 +29,9 @@ struct Client {
     stream: Framed<TcpStream, LinesCodec>
 }
 
-impl ConnectionFactory {
+impl ConnectionListener {
     pub fn new(addr: SocketAddr) -> Self {
-        ConnectionFactory {
+        ConnectionListener {
             addr: addr,
             connections_map: Arc::new(Mutex::new(HashMap::new()))
         }

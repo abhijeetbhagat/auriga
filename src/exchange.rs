@@ -1,4 +1,4 @@
-use crate::connection::ConnectionFactory;
+use crate::connection::ConnectionListener;
 use crate::proto::stomp::STOMPParser;
 use crate::queue_manager::QueueManager;
 
@@ -7,7 +7,7 @@ pub struct Exchange {
     name: String,
     parser: STOMPParser,
     queue_manager: QueueManager,
-    connection_factory: ConnectionFactory
+    connection_factory: ConnectionListener
 }
 
 impl Exchange {
@@ -17,7 +17,7 @@ impl Exchange {
             name: name,
             parser: STOMPParser,
             queue_manager: QueueManager::new(),
-            connection_factory: ConnectionFactory::new("127.0.0.1:61616".parse().unwrap())
+            connection_factory: ConnectionListener::new("127.0.0.1:61616".parse().unwrap())
         }
     }
 

@@ -1,17 +1,17 @@
 pub enum Frame {
-    Send,
-    Subscribe,
-    Unsubscribe,
-    Begin,
-    Commit,
-    Abort,
-    Ack,
-    Nack,
-    Disconnect,
-    Message,
-    Receipt,
-    Error,
-    Invalid
+    Send, //sends a message to the destination
+    Subscribe, //register to a given destination
+    Unsubscribe, //unregister from a given destination
+    Begin, //start a transaction
+    Commit, //commit a transaction
+    Abort, //roll back a transaction
+    Ack, //ack consumption of a message from a subscription
+    Nack, //tell the server that the message hasn't be consumed yet
+    Disconnect, //disconnect from the server
+    Message, //convey messages from subscriptions to clients
+    Receipt, //ack from server that a client frame was processed
+    Error, //let clients know of any errors
+    Invalid //invalid frame
 }
 
 pub struct STOMPParser;
