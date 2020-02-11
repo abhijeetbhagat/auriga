@@ -21,7 +21,7 @@ impl STOMPParser {
         STOMPParser
     }
 
-    pub fn parse(self, command: &str) -> Frame {
+    pub fn parse(&self, command: &str) -> Frame {
         let lines: Vec<&str> = command.split('\n').collect();
         let command_str = lines[0];
         match command_str { 
