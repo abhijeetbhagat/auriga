@@ -40,6 +40,7 @@ impl QueueManager {
         if !self.queue_map.contains_key(&routing_key) {
             let mut queue = Queue::new();
             queue.subscribers.push(Subscriber{addr: addr, tx: tx});
+            println!("inserted {} routing key", routing_key);
             self.queue_map.insert(routing_key, queue);
         }
     }

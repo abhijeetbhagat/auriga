@@ -62,7 +62,7 @@ impl Stream for Client {
     type Item = Result<Message, LinesCodecError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if self.rx.is_some() {
+        if self.rx.is_some() { //we initialize rx only when a socket subscribes to a queue
             if let Poll::Ready(Some(v)) = Pin::new(self.rx.as_mut().unwrap()).poll_next(cx) {
                 return Poll::Ready(Some(Ok(Message::ChannelMessage(v))))
             } 
@@ -70,7 +70,10 @@ impl Stream for Client {
 
         let result: Option<_> = futures::ready!(Pin::new(&mut self.stream).poll_next(cx));
         Poll::Ready(match result { 
-            Some(Ok(message)) => Some(Ok(Message::StreamMessage(message))),
+            Some(Ok(message)) => { 
+                println!("Poller: message recvd - {}", message);
+                Some(Ok(Message::StreamMessage(message)))
+            },
             Some(Err(e)) => Some(Err(e)),
             None => None
         })
@@ -92,12 +95,14 @@ async fn handle(queue_mgr: Arc<Mutex<QueueManager>>, stream: TcpStream, addr: So
             Ok(Message::StreamMessage(m)) => {
                 println!("Got something to process from the read part of the stream");
                 let msg = &m;
+                println!("msg received: {}", msg);
                 let frame = parser.parse(msg);
-                match frame {
+                match frame.r#type {
                     Frame::Subscribe => { 
                         let (tx, rx) = mpsc::unbounded_channel();
                         client.rx = Some(rx);
-                        queue_mgr.lock().await.subscribe(String::from(""), tx, addr);
+                        let routing_key = frame.headers["destination"].clone();
+                        queue_mgr.lock().await.subscribe(routing_key, tx, addr);
                     },
                     Frame::Unsubscribe => { 
                         queue_mgr.lock().await.unsubscribe();
