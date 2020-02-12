@@ -1,3 +1,10 @@
+use std::collections::HashMap;
+
+pub struct STOMPFrame {
+    pub r#type: Frame,
+    pub headers: HashMap<String, String>
+}
+
 pub enum Frame {
     Send, //sends a message to the destination
     Subscribe, //register to a given destination
@@ -21,10 +28,20 @@ impl STOMPParser {
         STOMPParser
     }
 
-    pub fn parse(&self, command: &str) -> Frame {
-        let lines: Vec<&str> = command.split('\n').collect();
+    pub fn parse(&self, command: &str) -> STOMPFrame {
+        let lines: Vec<&str> = command
+            .split('\n')
+            .filter(|l| l != &"\n" && l != &"\0")
+            .collect();
         let command_str = lines[0];
-        match command_str { 
+        let mut hm = HashMap::new();
+
+        for line in &lines[1..] { 
+            let hdr_line: Vec<&str> = line.split(':').collect();
+            hm.insert(String::from(hdr_line[0]), String::from(hdr_line[1]));
+        }
+
+        let r#type = match command_str { 
             "SEND" => Frame::Send,
             "SUBSCRIBE" => Frame::Subscribe,
             "UNSUBSCRIBE" => Frame::Unsubscribe,
@@ -35,6 +52,11 @@ impl STOMPParser {
             "NACK" =>  Frame::Nack,
             "DISCONNECT" => Frame::Disconnect,
             _ => Frame::Invalid
+        };
+
+        STOMPFrame { 
+            r#type: r#type,
+            headers: hm
         }
     }
 }
