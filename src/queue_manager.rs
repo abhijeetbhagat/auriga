@@ -37,13 +37,26 @@ impl QueueManager {
         }
     }
 
-    pub fn subscribe(&mut self, routing_key: String, tx: Tx, addr: SocketAddr) {
-        if !self.queue_map.contains_key(&routing_key) {
+    pub fn subscribe(&mut self, routing_key: &str, tx: Tx, addr: SocketAddr) {
+        if !self.queue_map.contains_key(routing_key) {
             let mut queue = Queue::new();
             queue.subscribers.push(Subscriber{addr: addr, tx: tx});
             println!("inserted {} routing key", routing_key);
-            self.queue_map.insert(routing_key, queue);
+            self.queue_map.insert(String::from(routing_key), queue);
         }
+    }
+
+    //TODO abhi: this does linear searching.
+    //should use something other than a list to store subscribers?
+    pub fn query_subscription(&self, routing_key: &str, addr: &SocketAddr) -> bool {
+        if self.queue_map.contains_key(routing_key) { 
+            let queue = self.queue_map.get(routing_key).unwrap();
+            return queue
+                    .subscribers
+                    .iter()
+                    .find(|subscriber| subscriber.addr == *addr).is_some()
+        }
+        false
     }
 
     pub fn unsubscribe(&mut self) {
