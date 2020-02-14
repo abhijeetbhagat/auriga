@@ -2,9 +2,10 @@ use std::collections::VecDeque;
 use std::collections::HashMap;
 use tokio::sync::{mpsc};
 use std::net::SocketAddr;
+use crate::proto::stomp::STOMPFrame;
 //use crate::connection::Connection;
 
-type Tx = mpsc::UnboundedSender<String>;
+type Tx = mpsc::UnboundedSender<STOMPFrame>;
 
 struct Subscriber {
     tx: Tx,
@@ -12,7 +13,7 @@ struct Subscriber {
 }
 
 struct Queue {
-    queue: VecDeque<String>,
+    queue: VecDeque<STOMPFrame>,
     subscribers: Vec<Subscriber>
 }
 
@@ -49,7 +50,7 @@ impl QueueManager {
 
     }
 
-    pub fn publish(&mut self, routing_key: &str, msg: String, addr: &SocketAddr) {
+    pub fn publish(&mut self, routing_key: &str, msg: &STOMPFrame, addr: &SocketAddr) {
         match self.queue_map.get_mut(routing_key) { 
             Some(q) => { 
                 q.queue.push_back(msg.clone());

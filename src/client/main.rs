@@ -8,8 +8,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Connecting to {} ...", server_addr);
     let mut stream = TcpStream::connect(server_addr).await?; 
     println!("Sending SUBSCRIBE to server ...");
-    stream.write_all(b"SUBSCRIBE\nid:0\ndestination:/queue/foo\nack:client\n\0").await?;
+    stream.write_all(b"SUBSCRIBE\nid:0\ndestination:/queue/foo\nack:client\n").await?;
+    //stream.write_all(b"SUBSCRIBE\n").await?;
     let mut buf = [0; 50];
     stream.read(&mut buf).await?;
+    println!("{}", std::str::from_utf8(&buf).unwrap());
     Ok(())
 }
