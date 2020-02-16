@@ -28,7 +28,6 @@ impl Stream for Client {
         let result: Option<_> = futures::ready!(Pin::new(&mut self.stream).poll_next(cx));
         Poll::Ready(match result { 
             Some(Ok(message)) => { 
-                println!("Poller: message recvd - {}", message);
                 Some(Ok(Message::StreamMessage(message)))
             },
             Some(Err(e)) => Some(Err(e)),

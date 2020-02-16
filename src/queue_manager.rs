@@ -88,13 +88,14 @@ impl QueueManager {
         }
     }
 
-    pub fn publish(&mut self, routing_key: &str, msg: &STOMPFrame, addr: &SocketAddr) {
+    pub fn publish(&mut self, routing_key: &str, msg: &STOMPFrame, sender: &SocketAddr) {
         match self.queue_map.get_mut(routing_key) { 
             Some(q) => { 
                 q.queue.push_back(msg.clone());
                 for subscriber in q.subscribers.iter() {
-                    if subscriber.addr != *addr { 
-                        subscriber.tx.send(msg.clone());
+                    if subscriber.addr != *sender { 
+                        println!("Sending message to {}", subscriber.addr);
+                        subscriber.tx.send(msg.clone()).unwrap();
                     }
                 }
             }
