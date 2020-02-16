@@ -3,6 +3,8 @@ mod broker;
 mod connection;
 mod exchange;
 mod proto;
+mod client;
+mod message;
 
 use broker::Broker;
 use tokio;

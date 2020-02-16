@@ -5,11 +5,14 @@ use tokio::stream::{ Stream, StreamExt};
 use std::sync::Arc;
 use std::task::{Poll, Context};
 use std::pin::Pin;
+use futures::SinkExt;
 use std::io;
 use std::error::Error;
 use tokio_util::codec::{Framed};
 use crate::queue_manager::QueueManager;
 use crate::proto::stomp::{ STOMPCodec, Frame, STOMPFrame };
+use crate::client::Client;
+use crate::message::Message;
 
 type Rx = mpsc::UnboundedReceiver<STOMPFrame>;
 
@@ -18,16 +21,6 @@ pub struct ConnectionListener {
     //TODO abhi: use RwLock instead of a mutex?
     //Reason - subscribing will be a lesser activity than publishing
     queue_manager: Arc<Mutex<QueueManager>>,
-}
-
-enum Message {
-    StreamMessage(STOMPFrame), 
-    ChannelMessage(STOMPFrame)
-}
-
-struct Client {
-    rx: Option<Rx>,
-    stream: Framed<TcpStream, STOMPCodec>
 }
 
 impl ConnectionListener {
@@ -59,27 +52,6 @@ impl ConnectionListener {
     } 
 }
 
-impl Stream for Client { 
-    type Item = Result<Message, io::Error>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if self.rx.is_some() { //we initialize rx only when a socket subscribes to a queue
-            if let Poll::Ready(Some(v)) = Pin::new(self.rx.as_mut().unwrap()).poll_next(cx) {
-                return Poll::Ready(Some(Ok(Message::ChannelMessage(v))))
-            } 
-        }
-
-        let result: Option<_> = futures::ready!(Pin::new(&mut self.stream).poll_next(cx));
-        Poll::Ready(match result { 
-            Some(Ok(message)) => { 
-                println!("Poller: message recvd - {}", message);
-                Some(Ok(Message::StreamMessage(message)))
-            },
-            Some(Err(e)) => Some(Err(e)),
-            None => None
-        })
-    }
-}
 
 async fn handle(
                 queue_mgr: Arc<Mutex<QueueManager>>, 
@@ -95,7 +67,7 @@ async fn handle(
         match result {
             Ok(Message::ChannelMessage(m)) => {
                 println!("Got something from channel to send on the write part of the stream");
-                //client.stream.send(m).await;
+                client.stream.send(m).await?;
             }
             Ok(Message::StreamMessage(m)) => {
                 println!("Got something to process from the read part of the stream");
@@ -103,15 +75,14 @@ async fn handle(
                 println!("frame received: {}", frame);
                 match frame.r#type {
                     Frame::Subscribe => { 
-                        let routing_key = frame.headers.get("destination").unwrap();
-                        if !queue_mgr.lock().await.query_subscription(&routing_key, &addr) { 
+                        if !queue_mgr.lock().await.query_subscription(frame, &addr) { 
                             let (tx, rx) = mpsc::unbounded_channel();
                             client.rx = Some(rx);
-                            queue_mgr.lock().await.subscribe(routing_key, tx, addr);
+                            queue_mgr.lock().await.subscribe(frame, tx, addr, &mut client);
                         }
                     }
                     Frame::Unsubscribe => { 
-                        queue_mgr.lock().await.unsubscribe();
+                        queue_mgr.lock().await.unsubscribe(frame, &addr);
                     }
                     Frame::Send => { 
                         let routing_key = frame.headers.get("destination").unwrap();
