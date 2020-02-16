@@ -13,5 +13,9 @@ futures = "0.3"
 bytes = "0.5"
 
 [[bin]]
-name = "client"
-path = "src/client/main.rs"
+name = "producer"
+path = "src/clients/producer.rs"
+
+[[bin]]
+name = "consumer"
+path = "src/clients/consumer.rs"
