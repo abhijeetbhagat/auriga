@@ -8,13 +8,11 @@ use std::pin::Pin;
 use futures::SinkExt;
 use std::io;
 use std::error::Error;
-use tokio_util::codec::{Framed};
+use tokio_util::codec::Framed;
 use crate::queue_manager::QueueManager;
-use crate::proto::stomp::{ STOMPCodec, Frame, STOMPFrame };
+use crate::proto::stomp::{ STOMPCodec, Frame };
 use crate::client::Client;
 use crate::message::Message;
-
-type Rx = mpsc::UnboundedReceiver<STOMPFrame>;
 
 pub struct ConnectionListener {
     addr: SocketAddr,

@@ -1,4 +1,4 @@
-use crate::connection::ConnectionListener;
+use crate::listener::ConnectionListener;
 use crate::proto::stomp::STOMPParser;
 use crate::queue_manager::QueueManager;
 

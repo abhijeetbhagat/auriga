@@ -5,7 +5,7 @@ use tokio::stream::{ Stream, StreamExt};
 use std::io;
 use std::task::{Poll, Context};
 use std::pin::Pin;
-use crate::proto::stomp::{ STOMPCodec, Frame, STOMPFrame };
+use crate::proto::stomp::{ STOMPCodec, STOMPFrame };
 use crate::message::Message;
 
 type Rx = mpsc::UnboundedReceiver<STOMPFrame>;
