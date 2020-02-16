@@ -7,14 +7,16 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub struct STOMPFrame {
     pub r#type: Frame,
-    pub headers: HashMap<String, String>
+    pub headers: HashMap<String, String>,
+    pub body: Option<Vec<u8>>
 }
 
 impl STOMPFrame {
     pub fn new() -> Self {
         STOMPFrame {
             r#type: Frame::Invalid,
-            headers: HashMap::new()
+            headers: HashMap::new(),
+            body: None
         }
     }
 }
@@ -24,6 +26,9 @@ impl fmt::Display for STOMPFrame {
         write!(f, "{}", self.r#type);
         for (k, v) in &self.headers {
             write!(f, "{}, {}", k, v);
+        }
+        if self.body.is_some() { 
+            write!(f, "{:?}", self.body);
         }
         Ok(())
     }
@@ -60,6 +65,7 @@ impl Encoder for STOMPCodec{
     type Error = io::Error;
 
     fn encode(&mut self, item: STOMPFrame, dst: &mut BytesMut) -> Result<(), io::Error> { 
+        let STOMPFrame { r#type, headers, body } = item;
         dst.reserve(10);
         dst.extend(b"abhi\r\n");
         Ok(())
@@ -68,6 +74,9 @@ impl Encoder for STOMPCodec{
 
 #[derive(Debug, Clone)]
 pub enum Frame {
+    Connect,
+    Connected,
+    Stomp,
     Send, //sends a message to the destination
     Subscribe, //register to a given destination
     Unsubscribe, //unregister from a given destination
@@ -86,6 +95,9 @@ pub enum Frame {
 impl fmt::Display for Frame {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {     
+            Frame::Connect => write!(f, "CONNECT"),
+            Frame::Connected => write!(f, "CONNECTED"),
+            Frame::Stomp => write!(f, "STOMP"),
             Frame::Send => write!(f, "SEND"),
             Frame::Subscribe => write!(f, "SUBSCRIBE"),
             Frame::Unsubscribe => write!(f, "UNSUBSCRIBE"),
@@ -106,10 +118,6 @@ impl fmt::Display for Frame {
 pub struct STOMPParser;
 
 impl STOMPParser {
-    pub fn new() -> Self {
-        STOMPParser
-    }
-
     pub fn parse(&self, command: &str) -> STOMPFrame {
         let lines: Vec<&str> = command
             .split('\n')
@@ -117,14 +125,32 @@ impl STOMPParser {
             .collect();
         let command_str = lines[0];
         let mut hm = HashMap::new();
+        let mut hdrs_cnt = 0;
 
         for line in &lines[1..] { 
             println!("splitting line - {}", line);
             let hdr_line: Vec<&str> = line.split(':').collect();
-            hm.insert(String::from(hdr_line[0]), String::from(hdr_line[1]));
+            if hdr_line.len() > 1 {
+                hm.insert(String::from(hdr_line[0]), String::from(hdr_line[1]));
+                hdrs_cnt += 1;
+                continue;
+            } 
+            break;
+        }
+
+        let mut body = None;
+        if hdrs_cnt < lines.len() - 1 {
+            let mut content: Vec<u8> = vec![];
+            for line in &lines[hdrs_cnt..] { 
+                content.extend_from_slice(line.as_bytes());
+            }
+            body = Some(content);
         }
 
         let r#type = match command_str { 
+            "CONNECT" => Frame::Connect,
+            "CONNECTED" => Frame::Connected,
+            "STOMP" => Frame::Stomp,
             "SEND" => Frame::Send,
             "SUBSCRIBE" => Frame::Subscribe,
             "UNSUBSCRIBE" => Frame::Unsubscribe,
@@ -139,7 +165,8 @@ impl STOMPParser {
 
         STOMPFrame { 
             r#type: r#type,
-            headers: hm
+            headers: hm,
+            body: body
         }
     }
 }
