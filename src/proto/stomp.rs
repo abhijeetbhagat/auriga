@@ -64,10 +64,28 @@ impl Encoder for STOMPCodec{
     type Item = STOMPFrame;
     type Error = io::Error;
 
+    //TODO abhi: optimize this?
+    //Problem is reserving the size of dst without extra allocations.
     fn encode(&mut self, item: STOMPFrame, dst: &mut BytesMut) -> Result<(), io::Error> { 
         let STOMPFrame { r#type, headers, body } = item;
-        dst.reserve(10);
-        dst.extend(b"abhi\r\n");
+        let frame_type = r#type.to_string();
+        let frame_type = frame_type.as_bytes();
+        let mut headers_bytes: Vec<u8> = vec![];
+        for (k, v) in headers {
+            headers_bytes.extend(k.as_bytes());
+            headers_bytes.extend(b":");
+            headers_bytes.extend(v.as_bytes());
+        }
+        let mut body_len = 0;
+        if body.is_some() { 
+            body_len = body.as_ref().unwrap().len();
+        }
+        dst.reserve(frame_type.len() + headers_bytes.len() + body_len);
+        dst.extend_from_slice(frame_type);
+        dst.extend_from_slice(headers_bytes.as_slice());
+        if body.is_some() { 
+            dst.extend(body.unwrap().as_slice());
+        }
         Ok(())
     }
 }

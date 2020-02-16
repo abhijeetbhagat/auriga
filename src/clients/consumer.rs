@@ -9,7 +9,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut stream = TcpStream::connect(server_addr).await?; 
     println!("Consumer: Sending SUBSCRIBE to server ...");
     stream.write_all(b"SUBSCRIBE\nid:0\ndestination:/queue/foo\nack:client\n").await?;
-    let mut buf = [0; 50];
+    let mut buf = [0; 100];
     loop {
         println!("Consumer: Waiting for message...");
         stream.read(&mut buf).await?;
