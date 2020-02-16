@@ -6,7 +6,7 @@ pub struct Exchange {
     name: String,
     parser: STOMPParser,
     queue_manager: QueueManager,
-    connection_factory: ConnectionListener
+    connection_factory: ConnectionListener,
 }
 
 impl Exchange {
@@ -15,11 +15,11 @@ impl Exchange {
             name: name,
             parser: STOMPParser,
             queue_manager: QueueManager::new(),
-            connection_factory: ConnectionListener::new("127.0.0.1:61616".parse().unwrap())
+            connection_factory: ConnectionListener::new("127.0.0.1:61616".parse().unwrap()),
         }
     }
 
-    pub async fn start(self) { 
+    pub async fn start(self) {
         self.connection_factory.start().await;
     }
 }

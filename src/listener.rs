@@ -1,18 +1,18 @@
-use tokio::net::{TcpListener, TcpStream};
-use std::net::SocketAddr;
-use tokio::sync::{mpsc, Mutex};
-use tokio::stream::{ Stream, StreamExt};
-use std::sync::Arc;
-use std::task::{Poll, Context};
-use std::pin::Pin;
-use futures::SinkExt;
-use std::io;
-use std::error::Error;
-use tokio_util::codec::Framed;
-use crate::queue_manager::QueueManager;
-use crate::proto::stomp::{ STOMPCodec, Frame };
 use crate::client::Client;
 use crate::message::Message;
+use crate::proto::stomp::{Frame, STOMPCodec};
+use crate::queue_manager::QueueManager;
+use futures::SinkExt;
+use std::error::Error;
+use std::io;
+use std::net::SocketAddr;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::stream::{Stream, StreamExt};
+use tokio::sync::{mpsc, Mutex};
+use tokio_util::codec::Framed;
 
 pub struct ConnectionListener {
     addr: SocketAddr,
@@ -25,8 +25,7 @@ impl ConnectionListener {
     pub fn new(addr: SocketAddr) -> Self {
         ConnectionListener {
             addr: addr,
-            queue_manager: Arc::new(Mutex::new(QueueManager::new()))
-            //connections_map: Arc::new(Mutex::new(HashMap::new()))
+            queue_manager: Arc::new(Mutex::new(QueueManager::new())), //connections_map: Arc::new(Mutex::new(HashMap::new()))
         }
     }
 
@@ -47,21 +46,23 @@ impl ConnectionListener {
             }
         };
         server.await;
-    } 
+    }
 }
 
-
 async fn handle(
-                queue_mgr: Arc<Mutex<QueueManager>>, 
-                stream: TcpStream, 
-                addr: SocketAddr
-               ) -> Result<(), Box<dyn Error>> { 
+    queue_mgr: Arc<Mutex<QueueManager>>,
+    stream: TcpStream,
+    addr: SocketAddr,
+) -> Result<(), Box<dyn Error>> {
     let stream = Framed::new(stream, STOMPCodec::new());
-    let mut client = Client { rx: None, stream: stream };
+    let mut client = Client {
+        rx: None,
+        stream: stream,
+    };
     //let parser = STOMPParser;
 
     println!("Starting handler for {}", addr);
-    while let Some(result) = client.next().await { 
+    while let Some(result) = client.next().await {
         match result {
             Ok(Message::ChannelMessage(m)) => {
                 println!("Got something from channel to send on the write part of the stream");
@@ -72,21 +73,24 @@ async fn handle(
                 let frame = &m;
                 println!("frame received: {}", frame);
                 match frame.r#type {
-                    Frame::Subscribe => { 
-                        if !queue_mgr.lock().await.query_subscription(frame, &addr) { 
+                    Frame::Subscribe => {
+                        if !queue_mgr.lock().await.query_subscription(frame, &addr) {
                             let (tx, rx) = mpsc::unbounded_channel();
                             client.rx = Some(rx);
-                            queue_mgr.lock().await.subscribe(frame, tx, addr, &mut client);
+                            queue_mgr
+                                .lock()
+                                .await
+                                .subscribe(frame, tx, addr, &mut client);
                         }
                     }
-                    Frame::Unsubscribe => { 
+                    Frame::Unsubscribe => {
                         queue_mgr.lock().await.unsubscribe(frame, &addr);
                     }
-                    Frame::Send => { 
+                    Frame::Send => {
                         let routing_key = frame.headers.get("destination").unwrap();
                         queue_mgr.lock().await.publish(routing_key, frame, &addr);
                     }
-                    _ => { }
+                    _ => {}
                 }
             }
             Err(e) => {}

@@ -1,10 +1,10 @@
-mod queue_manager;
 mod broker;
-mod listener;
-mod exchange;
-mod proto;
 mod client;
+mod exchange;
+mod listener;
 mod message;
+mod proto;
+mod queue_manager;
 
 use broker::Broker;
 use tokio;
