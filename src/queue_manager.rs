@@ -1,11 +1,12 @@
 use crate::client::Client;
-use crate::proto::stomp::STOMPFrame;
+use crate::proto::stomp::{Frame, STOMPFrame, STOMPParser};
+use bytes::Bytes;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 use tokio::sync::mpsc;
 
-type Tx = mpsc::UnboundedSender<STOMPFrame>;
+type Tx = mpsc::UnboundedSender<Bytes>;
 
 struct Subscriber {
     tx: Tx,
@@ -47,7 +48,7 @@ impl QueueManager {
     //TODO abhi: for STOMP, if the subscription fails, then we should
     //send an ERROR frame to the client. But we are always making the
     //subscription succeed here.
-    pub fn subscribe(&mut self, frame: &STOMPFrame, tx: Tx, addr: SocketAddr, client: &mut Client) {
+    pub fn subscribe(&mut self, frame: &STOMPFrame, tx: Tx, addr: SocketAddr) {
         let routing_key = frame.headers.get("destination").unwrap();
         if !self.queue_map.contains_key(routing_key) {
             let mut queue = Queue::new();
@@ -95,12 +96,44 @@ impl QueueManager {
                 for subscriber in q.subscribers.iter() {
                     if subscriber.addr != *sender {
                         println!("Sending message to {}", subscriber.addr);
-                        subscriber.tx.send(msg.clone()).unwrap();
+                        subscriber.tx.send(msg.as_bytes()).unwrap();
                     }
                 }
             }
             None => {
                 println!("No queue associated with routing key {} found", routing_key);
+            }
+        }
+    }
+
+    pub fn process(&mut self, msg: Bytes, addr: SocketAddr, client: &mut Client) {
+        if !msg.is_empty() {
+            let len = msg.len();
+            //let msg = msg.split_to(len);
+            let parser = STOMPParser;
+            let frame = parser.parse(std::str::from_utf8(&msg).unwrap());
+
+            match frame.r#type {
+                Frame::Subscribe => {
+                    println!("Subscribe recvd ...");
+                    if !self.query_subscription(&frame, &addr) {
+                        let (tx, rx) = mpsc::unbounded_channel();
+                        client.rx = Some(rx);
+                        self.subscribe(&frame, tx, addr);
+                    }
+                }
+                Frame::Unsubscribe => {
+                    println!("UnSubscribe recvd ...");
+                    self.unsubscribe(&frame, &addr);
+                }
+                Frame::Send => {
+                    println!("Send recvd ...");
+                    let routing_key = frame.headers.get("destination").unwrap();
+                    self.publish(routing_key, &frame, &addr);
+                }
+                _ => {
+                    println!("Invalid message");
+                }
             }
         }
     }

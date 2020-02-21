@@ -12,7 +12,7 @@ use std::task::{Context, Poll};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::stream::{Stream, StreamExt};
 use tokio::sync::{mpsc, Mutex};
-use tokio_util::codec::Framed;
+use tokio_util::codec::{BytesCodec, Framed};
 
 pub struct ConnectionListener {
     addr: SocketAddr,
@@ -54,9 +54,10 @@ async fn handle(
     stream: TcpStream,
     addr: SocketAddr,
 ) -> Result<(), Box<dyn Error>> {
-    let stream = Framed::new(stream, STOMPCodec::new());
+    let stream = Framed::new(stream, BytesCodec::new());
+    let (tx, rx) = mpsc::unbounded_channel();
     let mut client = Client {
-        rx: None,
+        rx: Some(rx),
         stream: stream,
     };
     //let parser = STOMPParser;
@@ -70,9 +71,12 @@ async fn handle(
             }
             Ok(Message::StreamMessage(m)) => {
                 println!("Got something to process from the read part of the stream");
-                let frame = &m;
-                println!("frame received: {}", frame);
-                match frame.r#type {
+                let bytes = m;
+                {
+                    queue_mgr.lock().await.process(bytes, addr, &mut client);
+                }
+                //println!("frame received: {}", frame);
+                /*match frame.r#type {
                     Frame::Subscribe => {
                         if !queue_mgr.lock().await.query_subscription(frame, &addr) {
                             let (tx, rx) = mpsc::unbounded_channel();
@@ -91,7 +95,7 @@ async fn handle(
                         queue_mgr.lock().await.publish(routing_key, frame, &addr);
                     }
                     _ => {}
-                }
+                }*/
             }
             Err(e) => {}
         }

@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::{thread, time};
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 
@@ -14,9 +15,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await;
     println!("SUBSCRIBE write result is {}", res.is_ok());
     println!("Producer: Sending SEND to server ...");
-    let res = stream
-        .write(b"SEND\ndestination:/queue/foo\ncontent-type:text/plain\ncontent-length:5\nabhi\n")
-        .await;
-    println!("SEND write result is {}", res.is_ok());
+    loop {
+        let res = stream
+            .write(
+                b"SEND\ndestination:/queue/foo\ncontent-type:text/plain\ncontent-length:5\nabhi\n",
+            )
+            .await;
+        println!("SEND write result is {}", res.is_ok());
+        if !res.is_ok() {
+            break;
+        }
+        let two_secs = time::Duration::from_secs(2);
+        thread::sleep(two_secs);
+    }
     Ok(())
 }

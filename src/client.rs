@@ -1,18 +1,19 @@
 use crate::message::Message;
 use crate::proto::stomp::{STOMPCodec, STOMPFrame};
+use bytes::Bytes;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::net::TcpStream;
 use tokio::stream::{Stream, StreamExt};
 use tokio::sync::{mpsc, Mutex};
-use tokio_util::codec::Framed;
+use tokio_util::codec::{BytesCodec, Framed};
 
-type Rx = mpsc::UnboundedReceiver<STOMPFrame>;
+type Rx = mpsc::UnboundedReceiver<Bytes>;
 
 pub struct Client {
     pub rx: Option<Rx>,
-    pub stream: Framed<TcpStream, STOMPCodec>,
+    pub stream: Framed<TcpStream, BytesCodec>,
 }
 
 impl Stream for Client {
@@ -28,7 +29,7 @@ impl Stream for Client {
 
         let result: Option<_> = futures::ready!(Pin::new(&mut self.stream).poll_next(cx));
         Poll::Ready(match result {
-            Some(Ok(message)) => Some(Ok(Message::StreamMessage(message))),
+            Some(Ok(message)) => Some(Ok(Message::StreamMessage(message.freeze()))),
             Some(Err(e)) => Some(Err(e)),
             None => None,
         })

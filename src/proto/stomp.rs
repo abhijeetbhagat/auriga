@@ -19,6 +19,10 @@ impl STOMPFrame {
             body: None,
         }
     }
+
+    pub fn as_bytes(&self) -> Bytes {
+        Bytes::from_static(b"abhi-static")
+    }
 }
 
 impl fmt::Display for STOMPFrame {
