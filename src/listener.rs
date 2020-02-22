@@ -93,8 +93,13 @@ async fn handle(
                     _ => {}
                 }
             }
-            Err(e) => {}
+            Err(e) => {
+                println!("Error occurred {}", e);
+                break;
+                //return Err(Box::new(e));
+            }
         }
     }
+    //queue_mgr.lock().await.unsubscribe_disconnect(&addr);
     Ok(())
 }

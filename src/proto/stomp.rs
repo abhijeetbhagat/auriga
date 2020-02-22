@@ -28,7 +28,11 @@ impl fmt::Display for STOMPFrame {
             write!(f, "{}, {}", k, v);
         }
         if self.body.is_some() {
-            write!(f, "{:?}", self.body);
+            write!(
+                f,
+                "{:?}",
+                std::str::from_utf8(self.body.as_ref().unwrap().as_slice()).unwrap()
+            );
         }
         Ok(())
     }
@@ -165,6 +169,10 @@ impl STOMPParser {
             for line in &lines[hdrs_cnt..] {
                 content.extend_from_slice(line.as_bytes());
             }
+            println!(
+                "parsed body - {}",
+                std::str::from_utf8(content.as_slice()).unwrap()
+            );
             body = Some(content);
         }
 

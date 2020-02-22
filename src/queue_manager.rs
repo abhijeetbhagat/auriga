@@ -84,7 +84,8 @@ impl QueueManager {
                 .iter()
                 .position(|subscriber| subscriber.addr == *addr)
                 .unwrap();
-            queue.subscribers.remove(pos);
+            let subscriber = queue.subscribers.remove(pos);
+            println!("Removed subscriber - {}", subscriber.addr);
         }
     }
 
@@ -92,11 +93,22 @@ impl QueueManager {
         match self.queue_map.get_mut(routing_key) {
             Some(q) => {
                 q.queue.push_back(msg.clone());
+                let mut failure_subscribers = vec![];
                 for subscriber in q.subscribers.iter() {
                     if subscriber.addr != *sender {
                         println!("Sending message to {}", subscriber.addr);
-                        subscriber.tx.send(msg.clone()).unwrap();
+                        match subscriber.tx.send(msg.clone()) {
+                            Err(e) => {
+                                //TODO: unsubscribe the recvr socket
+                                println!("recv end seemed to have closed");
+                                failure_subscribers.push(subscriber.addr);
+                            }
+                            _ => {}
+                        }
                     }
+                }
+                for addr in failure_subscribers.iter() {
+                    self.unsubscribe(msg, addr);
                 }
             }
             None => {
@@ -104,4 +116,6 @@ impl QueueManager {
             }
         }
     }
+
+    pub fn unsubscribe_disconnect(&mut self, addr: &SocketAddr) {}
 }
