@@ -16,7 +16,7 @@ async fn try_main() -> Result<()> {
     let (mut reader, mut writer) = (&stream, &stream);
     println!("Consumer: Sending SUBSCRIBE to server ...");
     writer
-        .write_all(b"SUBSCRIBE\nid:0\ndestination:/queue/foo\nack:client\n")
+        .write_all(b"SUBSCRIBE\nid:0\ndestination:/queue/foo\nack:client\n\0")
         .await?;
     let mut buf = [0; 100];
     loop {

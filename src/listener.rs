@@ -7,7 +7,7 @@ use async_std::net::{TcpListener, TcpStream};
 use async_std::prelude::*;
 use async_std::task;
 use futures::{channel::mpsc, select, FutureExt, SinkExt};
-use std::collections::HashMap;
+use std::collections::hash_map::{Entry, HashMap};
 use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
@@ -64,21 +64,23 @@ enum Void {}
 #[derive(Debug)]
 enum Event {
     NewPeer {
-        name: SocketAddr,
+        addr: SocketAddr,
+        frame: STOMPFrame,
         stream: Arc<TcpStream>,
-        shutdown: Rx<Void>,
+        //shutdown: Rx<Void>,
     },
     Message {
         from: SocketAddr,
-        msg: String,
+        frame: STOMPFrame,
     },
 }
 
-async fn socket_reader(mut tx: Tx<STOMPFrame>, stream: TcpStream) -> Result<(), io::Error> {
-    let mut reader = BufReader::new(stream);
+async fn socket_reader(mut tx: Tx<Event>, stream: TcpStream) -> Result<(), io::Error> {
+    let stream = Arc::new(stream);
+    let mut reader = BufReader::new(&*stream);
     //let mut lines = reader.lines();
-    let mut message = String::from("");
     let parser = STOMPParser;
+    let addr = stream.peer_addr().unwrap();
     //while let Some(line) = lines.next().await {
     loop {
         let mut buf = Vec::with_capacity(2048);
@@ -88,23 +90,77 @@ async fn socket_reader(mut tx: Tx<STOMPFrame>, stream: TcpStream) -> Result<(), 
         }
         let message = String::from_utf8(buf).unwrap();
         let frame = parser.parse(&message);
-        tx.send(frame).await;
+
+        let msg = match frame.r#type {
+            Frame::Subscribe => Event::NewPeer {
+                addr: stream.peer_addr().unwrap(),
+                frame: frame,
+                stream: Arc::clone(&stream),
+                //shutdown:
+            },
+            _ => Event::Message {
+                from: addr,
+                frame: frame,
+            },
+        };
+        tx.send(msg).await;
     }
     println!("Done while ...");
     Ok(())
     //tx.send(stream.peer_addr().unwrap());
 }
 
-async fn registrar(mut rx: Rx<STOMPFrame>) {
-    //let peers = HashMap::new();
-    while let Some(frame) = rx.next().await {
-        println!("{:?}", frame);
-        match frame.r#type {
-            Frame::Subscribe => {}
-            Frame::Send => {}
-            _ => {}
+async fn registrar(mut rx: Rx<Event>) {
+    let mut peers = HashMap::new();
+    while let Some(event) = rx.next().await {
+        match event {
+            Event::NewPeer {
+                addr,
+                frame,
+                stream,
+                //shutdown,
+            } => {
+                println!("{:?}", frame);
+                match peers.entry(addr) {
+                    Entry::Occupied(..) => (),
+                    Entry::Vacant(entry) => {
+                        let (tx, mut rx) = mpsc::unbounded();
+                        entry.insert(tx);
+                        task::spawn(async move {
+                            dispatcher(&mut rx, stream).await;
+                        });
+                    }
+                }
+            }
+            Event::Message { from, frame } => {
+                println!("{:?}", frame);
+                println!("len - {}", peers.len());
+                for (k, mut v) in peers.iter_mut() {
+                    if *k != from {
+                        println!("Sending frame over channel to be sent to stream {}...", *k);
+                        v.send(frame.clone()).await;
+                        //&*v.write_all(b"abhi").await;
+                    }
+                }
+            }
         }
     }
+}
+
+async fn dispatcher(rx: &mut Rx<STOMPFrame>, stream: Arc<TcpStream>) -> Result<(), io::Error> {
+    let mut stream = &*stream;
+    loop {
+        select! {
+            msg = rx.next().fuse() => match msg {
+                Some(msg) => {
+                    println!("About to write to stream ...");
+                    stream.write_all(b"abhi").await?;
+                }
+                None => break
+            }
+        }
+    }
+    Ok(())
 }
 
 /*
