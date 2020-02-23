@@ -6,13 +6,12 @@ mod message;
 mod proto;
 mod queue_manager;
 
+use async_std::task;
 use broker::Broker;
-use tokio;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     println!("Starting broker...");
     let broker = Broker::new();
     // tokio::spawn(broker.start());
-    broker.start().await;
+    task::block_on(broker.start());
 }

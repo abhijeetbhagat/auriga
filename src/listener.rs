@@ -1,54 +1,113 @@
-use crate::client::Client;
+//use crate::client::Client;
 use crate::message::Message;
-use crate::proto::stomp::{Frame, STOMPCodec};
-use crate::queue_manager::QueueManager;
-use futures::SinkExt;
+use crate::proto::stomp::{Frame, STOMPCodec, STOMPFrame, STOMPParser};
+//use crate::queue_manager::QueueManager;
+use async_std::io::BufReader;
+use async_std::net::{TcpListener, TcpStream};
+use async_std::prelude::*;
+use async_std::task;
+use futures::{channel::mpsc, select, FutureExt, SinkExt};
+use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::stream::{Stream, StreamExt};
-use tokio::sync::{mpsc, Mutex};
-use tokio_util::codec::Framed;
+
+type Tx<T> = mpsc::UnboundedSender<T>;
+type Rx<T> = mpsc::UnboundedReceiver<T>;
 
 pub struct ConnectionListener {
     addr: SocketAddr,
     //TODO abhi: use RwLock instead of a mutex?
     //Reason - subscribing will be a lesser activity than publishing
-    queue_manager: Arc<Mutex<QueueManager>>,
+    //queue_manager: QueueManager,
 }
 
 impl ConnectionListener {
     pub fn new(addr: SocketAddr) -> Self {
         ConnectionListener {
             addr: addr,
-            queue_manager: Arc::new(Mutex::new(QueueManager::new())), //connections_map: Arc::new(Mutex::new(HashMap::new()))
+            //queue_manager: QueueManager::new(), //connections_map: Arc::new(Mutex::new(HashMap::new()))
         }
     }
 
-    pub async fn start(self) {
-        let server = async move {
-            println!("Starting server at {}", self.addr);
-            let mut listener = TcpListener::bind(&self.addr).await.unwrap();
-            let queue_mgr = Arc::clone(&self.queue_manager);
-            loop {
-                let (stream, addr) = listener.accept().await.unwrap();
-                println!("Accepted a connection from {}", addr);
-                let queue_mgr = Arc::clone(&queue_mgr);
-                tokio::spawn(async move {
-                    if let Err(e) = self::handle(queue_mgr, stream, addr).await {
-                        println!("Error handling the frame - {}", e);
-                    }
-                });
-            }
-        };
-        server.await;
+    pub async fn start(self) -> Result<(), io::Error> {
+        println!("Starting server at {}", self.addr);
+        let listener = TcpListener::bind(&self.addr).await?;
+        let mut incoming = listener.incoming();
+        //let queue_mgr = Arc::clone(&self.queue_manager);
+        let (tx, rx) = mpsc::unbounded();
+        let registrar = task::spawn(registrar(rx));
+        while let Some(stream) = incoming.next().await {
+            let stream = stream?;
+            println!("Accepted a connection from {}", stream.peer_addr()?);
+            let tx = tx.clone();
+            //let queue_mgr = Arc::clone(&queue_mgr);
+            task::spawn(async move {
+                /*if let Err(e) = self::handle(queue_mgr, stream, addr).await {
+                    println!("Error handling the frame - {}", e);
+                }*/
+                if let Err(e) = self::socket_reader(tx, stream).await {
+                    eprintln!("Error occurred in the socket_reader task {}", e);
+                }
+            });
+        }
+        Ok(())
     }
 }
 
+#[derive(Debug)]
+enum Void {}
+
+#[derive(Debug)]
+enum Event {
+    NewPeer {
+        name: SocketAddr,
+        stream: Arc<TcpStream>,
+        shutdown: Rx<Void>,
+    },
+    Message {
+        from: SocketAddr,
+        msg: String,
+    },
+}
+
+async fn socket_reader(mut tx: Tx<STOMPFrame>, stream: TcpStream) -> Result<(), io::Error> {
+    let mut reader = BufReader::new(stream);
+    //let mut lines = reader.lines();
+    let mut message = String::from("");
+    let parser = STOMPParser;
+    //while let Some(line) = lines.next().await {
+    loop {
+        let mut buf = Vec::with_capacity(2048);
+        let size = reader.read_until(b'\0', &mut buf).await?;
+        if size == 0 {
+            break;
+        }
+        let message = String::from_utf8(buf).unwrap();
+        let frame = parser.parse(&message);
+        tx.send(frame).await;
+    }
+    println!("Done while ...");
+    Ok(())
+    //tx.send(stream.peer_addr().unwrap());
+}
+
+async fn registrar(mut rx: Rx<STOMPFrame>) {
+    //let peers = HashMap::new();
+    while let Some(frame) = rx.next().await {
+        println!("{:?}", frame);
+        match frame.r#type {
+            Frame::Subscribe => {}
+            Frame::Send => {}
+            _ => {}
+        }
+    }
+}
+
+/*
 async fn handle(
     queue_mgr: Arc<Mutex<QueueManager>>,
     stream: TcpStream,
@@ -103,3 +162,4 @@ async fn handle(
     //queue_mgr.lock().await.unsubscribe_disconnect(&addr);
     Ok(())
 }
+*/

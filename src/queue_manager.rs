@@ -1,4 +1,4 @@
-use crate::client::Client;
+/*use crate::client::Client;
 use crate::proto::stomp::STOMPFrame;
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -119,3 +119,4 @@ impl QueueManager {
 
     pub fn unsubscribe_disconnect(&mut self, addr: &SocketAddr) {}
 }
+*/

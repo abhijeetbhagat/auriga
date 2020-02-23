@@ -2,7 +2,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
-use tokio_util::codec::{Decoder, Encoder};
+//use tokio_util::codec::{Decoder, Encoder};
 
 #[derive(Debug, Clone)]
 pub struct STOMPFrame {
@@ -46,7 +46,7 @@ impl STOMPCodec {
     }
 }
 
-impl Decoder for STOMPCodec {
+/*impl Decoder for STOMPCodec {
     type Item = STOMPFrame;
     type Error = io::Error;
 
@@ -95,7 +95,7 @@ impl Encoder for STOMPCodec {
         }
         Ok(())
     }
-}
+}*/
 
 #[derive(Debug, Clone)]
 pub enum Frame {
@@ -144,6 +144,7 @@ pub struct STOMPParser;
 
 impl STOMPParser {
     pub fn parse(&self, command: &str) -> STOMPFrame {
+        //println!("parser: command recvd - {}", command);
         let lines: Vec<&str> = command
             .split('\n')
             .filter(|l| l != &"\0" && l != &"")
@@ -153,7 +154,7 @@ impl STOMPParser {
         let mut hdrs_cnt = 0;
 
         for line in &lines[1..] {
-            println!("splitting line - {}", line);
+            //println!("splitting line - {}", line);
             let hdr_line: Vec<&str> = line.split(':').collect();
             if hdr_line.len() > 1 {
                 hm.insert(String::from(hdr_line[0]), String::from(hdr_line[1]));
@@ -166,13 +167,13 @@ impl STOMPParser {
         let mut body = None;
         if hdrs_cnt < lines.len() - 1 {
             let mut content: Vec<u8> = vec![];
-            for line in &lines[hdrs_cnt..] {
+            for line in &lines[hdrs_cnt + 1..] {
                 content.extend_from_slice(line.as_bytes());
             }
-            println!(
+            /*println!(
                 "parsed body - {}",
                 std::str::from_utf8(content.as_slice()).unwrap()
-            );
+            );*/
             body = Some(content);
         }
 
