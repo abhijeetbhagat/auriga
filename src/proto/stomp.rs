@@ -1,10 +1,11 @@
 use bytes::{BufMut, Bytes, BytesMut};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
 //use tokio_util::codec::{Decoder, Encoder};
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct STOMPFrame {
     pub r#type: Frame,
     pub headers: HashMap<String, String>,
@@ -20,6 +21,34 @@ impl STOMPFrame {
         }
     }
 }
+
+/*impl STOMPFrame {
+    pub fn as_bytes(&self) -> Option<&[u8]> {
+        let STOMPFrame {
+            r#type,
+            headers,
+            body,
+        } = self;
+        let frame_type = r#type.to_string();
+        let frame_type = frame_type.as_bytes();
+        let mut headers_bytes: Vec<u8> = vec![];
+        for (k, v) in headers {
+            headers_bytes.extend(k.as_bytes());
+            headers_bytes.extend(b":");
+            headers_bytes.extend(v.as_bytes());
+        }
+        let mut body_len = 0;
+        if body.is_some() {
+            body_len = body.as_ref().unwrap().len();
+        }
+        dst.reserve(frame_type.len() + headers_bytes.len() + body_len);
+        dst.extend_from_slice(frame_type);
+        dst.extend_from_slice(headers_bytes.as_slice());
+        if body.is_some() {
+            dst.extend(body.unwrap().as_slice());
+        }
+    }
+}*/
 
 impl fmt::Display for STOMPFrame {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -97,7 +126,7 @@ impl Encoder for STOMPCodec {
     }
 }*/
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum Frame {
     Connect,
     Connected,

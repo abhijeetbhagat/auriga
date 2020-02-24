@@ -18,7 +18,7 @@ async fn try_main() -> Result<()> {
     writer
         .write_all(b"SUBSCRIBE\nid:0\ndestination:/queue/foo\nack:client\n\0")
         .await?;
-    let mut buf = [0; 100];
+    let mut buf = [0; 1024];
     loop {
         println!("Consumer: Waiting for message...");
         reader.read(&mut buf).await?;

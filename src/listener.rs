@@ -7,6 +7,7 @@ use async_std::net::{TcpListener, TcpStream};
 use async_std::prelude::*;
 use async_std::task;
 use futures::{channel::mpsc, select, FutureExt, SinkExt};
+use serde::{Deserialize, Serialize};
 use std::collections::hash_map::{Entry, HashMap};
 use std::error::Error;
 use std::io;
@@ -154,7 +155,7 @@ async fn dispatcher(rx: &mut Rx<STOMPFrame>, stream: Arc<TcpStream>) -> Result<(
             msg = rx.next().fuse() => match msg {
                 Some(msg) => {
                     println!("About to write to stream ...");
-                    stream.write_all(b"abhi").await?;
+                    stream.write_all(serde_json::to_string(&msg).unwrap().as_bytes()).await?;
                 }
                 None => break
             }
